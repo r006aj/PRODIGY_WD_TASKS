@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tic-Tac-Toe Game</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f0f0f0;
+      margin: 0;
+      padding: 0;
+    }
+
+    .container {
+      max-width: 600px;
+      margin: 40px auto;
+      padding: 20px;
+      background: #fff;
+      box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+      border-radius: 10px;
+      text-align: center;
+    }
+
+    h1 {
+      margin-bottom: 20px;
+    }
+
+    .controls,
+    .scoreboard,
+    .turn-indicator,
+    .timer,
+    #status,
+    .buttons {
+      margin: 15px 0;
+    }
+
+    .board {
+      display: grid;
+      grid-template-columns: repeat(3, 100px);
+      grid-template-rows: repeat(3, 100px);
+      gap: 5px;
+      justify-content: center;
+      margin: 20px 0;
+    }
+
+    .cell {
+      background: #fff;
+      border: 2px solid #444;
+      font-size: 36px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      cursor: pointer;
+      user-select: none;
+      transition: background-color 0.3s;
+    }
+
+    .cell.disabled {
+      cursor: not-allowed;
+    }
+
+    .cell.winning {
+      background-color: #90ee90 !important;
+    }
+
+    input[type="text"],
+    select {
+      padding: 5px;
+      margin: 5px;
+    }
+
+    button {
+      padding: 8px 16px;
+      font-size: 16px;
+      margin: 5px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <h1>Tic-Tac-Toe</h1>
+
+    <div class="controls">
+      <label>
+        Player X Name: 
+        <input type="text" id="playerX" placeholder="Player X" />
+      </label>
+      <label>
+        Player O Name: 
+        <input type="text" id="playerO" placeholder="Player O" />
+      </label>
+      <br />
+      <label>
+        Mode:
+        <select id="modeSelect">
+          <option value="pvp">Player vs Player</option>
+          <option value="ai">Player vs AI</option>
+        </select>
+      </label>
+      <label id="difficultySelectContainer" style="display:none;">
+        Difficulty:
+        <select id="difficulty">
+          <option value="easy">Easy</option>
+          <option value="medium">Medium</option>
+          <option value="hard">Hard</option>
+        </select>
+      </label>
+    </div>
+
+    <div class="scoreboard">
+      <span id="scoreX">X: 0</span> | <span id="scoreO">O: 0</span>
+    </div>
+
+    <div class="turn-indicator" id="turn">Player X's turn</div>
+    <div class="timer" id="timer">Time left: 10s</div>
+
+    <div class="board" id="board"></div>
+    <div id="status"></div>
+
+    <div class="buttons">
+      <button id="reset">Restart Game</button>
+      <button id="resetScore">Reset Scores</button>
+    </div>
+  </div>
+
+  <script>
+    const board = document.getElementById('board');
+    const statusMsg = document.getElementById('status');
+    const turnMsg = document.getElementById('turn');
+    const timerDisplay = document.getElementById('timer');
+    const resetBtn = document.getElementById('reset');
+    const resetScoreBtn = document.getElementById('resetScore');
+    const scoreX = document.getElementById('scoreX');
+    const scoreO = document.getElementById('scoreO');
+    const modeSelect = document.getElementById('modeSelect');
+    const difficultySelect = document.getElementById('difficulty');
+    const difficultyContainer = document.getElementById('difficultySelectContainer');
+    const playerXInput = document.getElementById('playerX');
+    const playerOInput = document.getElementById('playerO');
+
+    let gameState = Array(9).fill('');
+    let currentPlayer = 'X';
+    let gameActive = true;
+    let scores = { X: 0, O: 0 };
+    let timer;
+    let timeLeft = 10;
+    let mode = 'pvp';
+    let difficulty = 'easy';
+
+    const winningLines = [
+      [0,1,2], [3,4,5], [6,7,8],
+      [0,3,6], [1,4,7], [2,5,8],
+      [0,4,8], [2,4,6]
+    ];
+
+    function createBoard() {
+      board.innerHTML = '';
+      for (let i = 0; i < 9; i++) {
+        const cell = document.createElement('div');
+        cell.className = 'cell';
+        cell.id = `cell-${i}`;
+        cell.addEventListener('click', () => handleCellClick(i));
+        board.appendChild(cell);
+      }
+    }
+
+    function handleCellClick(index) {
+      if (!gameActive || gameState[index] !== '') return;
+      makeMove(index);
+      if (gameActive && mode === 'ai' && currentPlayer === 'O') {
+        setTimeout(aiMove, 400);
+      }
+    }
+
+    function makeMove(index) {
+      gameState[index] = currentPlayer;
+      const cell = document.getElementById(`cell-${index}`);
+      cell.textContent = currentPlayer;
+      cell.classList.add('disabled');
+
+      const winCombo = getWinningCombo();
+      if (winCombo.length) {
+        winCombo.forEach(i => document.getElementById(`cell-${i}`).classList.add('winning'));
+        endGame(`${getPlayerName(currentPlayer)} wins!`, true);
+      } else if (!gameState.includes('')) {
+        endGame("It's a draw!", false);
+      } else {
+        switchTurn();
+      }
+    }
+
+    function switchTurn() {
+      currentPlayer = currentPlayer === 'X' ? 'O' : 'X';
+      turnMsg.textContent = `${getPlayerName(currentPlayer)}'s turn`;
+      startTimer();
+    }
+
+    function startTimer() {
+      clearInterval(timer);
+      timeLeft = 10;
+      timerDisplay.textContent = `Time left: ${timeLeft}s`;
+      timer = setInterval(() => {
+        timeLeft--;
+        timerDisplay.textContent = `Time left: ${timeLeft}s`;
+        if (timeLeft === 0) {
+          clearInterval(timer);
+          if (mode === 'pvp') switchTurn();
+          else if (mode === 'ai' && currentPlayer === 'X') aiMove();
+        }
+      }, 1000);
+    }
+
+    function getPlayerName(symbol) {
+      if (symbol === 'X') return playerXInput.value || 'Player X';
+      return playerOInput.value || (mode === 'ai' ? 'Computer' : 'Player O');
+    }
+
+    function getWinningCombo() {
+      for (const line of winningLines) {
+        const [a, b, c] = line;
+        if (gameState[a] && gameState[a] === gameState[b] && gameState[b] === gameState[c]) {
+          return line;
+        }
+      }
+      return [];
+    }
+
+    function endGame(message, won) {
+      gameActive = false;
+      clearInterval(timer);
+      statusMsg.textContent = message;
+      if (won) {
+        scores[currentPlayer]++;
+        updateScore();
+      }
+    }
+
+    function updateScore() {
+      scoreX.textContent = `X: ${scores.X}`;
+      scoreO.textContent = `O: ${scores.O}`;
+    }
+
+    function resetGame() {
+      clearInterval(timer);
+      gameActive = true;
+      currentPlayer = 'X';
+      gameState = Array(9).fill('');
+      statusMsg.textContent = '';
+      turnMsg.textContent = `${getPlayerName(currentPlayer)}'s turn`;
+      createBoard();
+      startTimer();
+    }
+
+    function aiMove() {
+      const emptyCells = gameState.map((v, i) => v === '' ? i : null).filter(v => v !== null);
+      let index;
+
+      if (difficulty === 'easy') {
+        index = emptyCells[Math.floor(Math.random() * emptyCells.length)];
+      } else if (difficulty === 'medium') {
+        index = findBlockMove() || emptyCells[Math.floor(Math.random() * emptyCells.length)];
+      } else {
+        index = minimax(gameState, 'O').index;
+      }
+
+      if (index !== undefined) {
+        makeMove(index);
+      }
+    }
+
+    function findBlockMove() {
+      for (const [a, b, c] of winningLines) {
+        const line = [gameState[a], gameState[b], gameState[c]];
+        if (line.filter(v => v === 'X').length === 2 && line.includes('')) {
+          return [a, b, c][line.indexOf('')];
+        }
+      }
+      return null;
+    }
+
+    function minimax(board, player) {
+      const avail = board.map((v, i) => v === '' ? i : null).filter(i => i !== null);
+      if (checkWin('X', board)) return { score: -10 };
+      if (checkWin('O', board)) return { score: 10 };
+      if (avail.length === 0) return { score: 0 };
+
+      const moves = [];
+
+      for (let i of avail) {
+        const newBoard = [...board];
+        newBoard[i] = player;
+        const result = minimax(newBoard, player === 'O' ? 'X' : 'O');
+        moves.push({ index: i, score: result.score });
+      }
+
+      return player === 'O'
+        ? moves.reduce((best, move) => move.score > best.score ? move : best)
+        : moves.reduce((best, move) => move.score < best.score ? move : best);
+    }
+
+    function checkWin(player, board) {
+      return winningLines.some(([a, b, c]) => board[a] === player && board[b] === player && board[c] === player);
+    }
+
+    modeSelect.addEventListener('change', () => {
+      mode = modeSelect.value;
+      difficultyContainer.style.display = mode === 'ai' ? 'inline' : 'none';
+      resetGame();
+    });
+
+    difficultySelect.addEventListener('change', () => {
+      difficulty = difficultySelect.value;
+    });
+
+    resetBtn.addEventListener('click', resetGame);
+
+    resetScoreBtn.addEventListener('click', () => {
+      scores = { X: 0, O: 0 };
+      updateScore();
+    });
+
+    // Init
+    createBoard();
+    startTimer();
+  </script>
+</body>
+</html>

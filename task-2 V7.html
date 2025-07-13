@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Stopwatch</title>
+  <style>
+    :root {
+      --bg: #ffffff;
+      --text: #000000;
+      --panel: #f0f0f0;
+    }
+
+    body.dark {
+      --bg: #121212;
+      --text: #ffffff;
+      --panel: #1e1e1e;
+    }
+
+    body {
+      font-family: Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      text-align: center;
+      padding: 50px;
+      transition: background 0.3s, color 0.3s;
+      position: relative;
+    }
+
+    h1 {
+      margin-bottom: 20px;
+    }
+
+    #time {
+      font-size: 48px;
+      margin-bottom: 20px;
+      letter-spacing: 2px;
+    }
+
+    .buttons button {
+      padding: 10px 20px;
+      font-size: 16px;
+      margin: 5px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+
+    .start { background: #4caf50; color: white; }
+    .pause { background: #ff9800; color: white; }
+    .reset { background: #f44336; color: white; }
+    .lap   { background: #2196f3; color: white; }
+
+    #laps {
+      margin-top: 30px;
+      max-height: 200px;
+      overflow-y: auto;
+      background: var(--panel);
+      padding: 10px;
+      border-radius: 5px;
+      transition: all 0.3s ease-in-out;
+    }
+
+    #laps p {
+      font-family: monospace;
+      margin: 5px 0;
+      animation: fadeIn 0.4s ease-in;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .theme-toggle {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .icon {
+      font-size: 18px;
+      opacity: 0.5;
+      transition: opacity 0.3s ease;
+    }
+
+    body.dark #moonIcon {
+      opacity: 1;
+    }
+
+    body:not(.dark) #sunIcon {
+      opacity: 1;
+    }
+
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 50px;
+      height: 24px;
+    }
+
+    .switch input { opacity: 0; width: 0; height: 0; }
+
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-color: #ccc;
+      transition: 0.4s;
+      border-radius: 34px;
+    }
+
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 18px;
+      width: 18px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      transition: 0.4s;
+      border-radius: 50%;
+    }
+
+    input:checked + .slider {
+      background-color: #2196f3;
+    }
+
+    input:checked + .slider:before {
+      transform: translateX(26px);
+    }
+
+    .summary {
+      margin-top: 20px;
+      font-family: monospace;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Theme toggle -->
+  <div class="theme-toggle">
+    <span class="icon" id="sunIcon">🌞</span>
+    <label class="switch">
+      <input type="checkbox" id="themeSwitch" onchange="toggleTheme()" />
+      <span class="slider"></span>
+    </label>
+    <span class="icon" id="moonIcon">🌙</span>
+  </div>
+
+  <h1>Stopwatch</h1>
+  <div id="time">00:00:00.00</div>
+
+  <div class="buttons">
+    <button class="start" onclick="start()">Start</button>
+    <button class="pause" onclick="pause()">Pause</button>
+    <button class="reset" onclick="reset()">Reset</button>
+    <button class="lap" onclick="lap()">Lap</button>
+  </div>
+
+  <div id="laps"></div>
+  <div class="summary" id="summary"></div>
+
+  <script>
+    let [h, m, s, ms] = [0, 0, 0, 0];
+    let timer = null;
+    let isRunning = false;
+
+    const display = document.getElementById('time');
+    const laps = document.getElementById('laps');
+    const summary = document.getElementById('summary');
+
+    const lapData = [];
+
+    // Pad number with leading zeros
+    function format(n, digits = 2) {
+      return n.toString().padStart(digits, '0');
+    }
+
+    function updateDisplay() {
+      display.innerText = `${format(h)}:${format(m)}:${format(s)}.${format(ms)}`;
+    }
+
+    function tick() {
+      ms++;
+      if (ms === 100) { ms = 0; s++; }
+      if (s === 60) { s = 0; m++; }
+      if (m === 60) { m = 0; h++; }
+
+      updateDisplay();
+    }
+
+    function start() {
+      if (!isRunning) {
+        timer = setInterval(tick, 10);
+        isRunning = true;
+      }
+    }
+
+    function pause() {
+      clearInterval(timer);
+      isRunning = false;
+    }
+
+    function reset() {
+      pause();
+      [h, m, s, ms] = [0, 0, 0, 0];
+      lapData.length = 0;
+      laps.innerHTML = '';
+      summary.innerHTML = '';
+      updateDisplay();
+    }
+
+    function getMS(h, m, s, ms) {
+      return ((h * 3600 + m * 60 + s) * 1000 + ms * 10);
+    }
+
+    function lap() {
+      if (!isRunning) return;
+
+      const lapStr = `${format(h)}:${format(m)}:${format(s)}.${format(ms)}`;
+      lapData.push(getMS(h, m, s, ms));
+
+      const p = document.createElement('p');
+      p.textContent = `Lap ${lapData.length}: ${lapStr}`;
+      laps.appendChild(p);
+      laps.scrollTop = laps.scrollHeight;
+
+      updateSummary();
+    }
+
+    function updateSummary() {
+      if (lapData.length < 2) {
+        summary.innerHTML = '';
+        return;
+      }
+
+      const gaps = lapData.map((t, i, arr) => i === 0 ? 0 : t - arr[i - 1]).slice(1);
+      const min = Math.min(...gaps);
+      const max = Math.max(...gaps);
+      const avg = Math.floor(gaps.reduce((a, b) => a + b, 0) / gaps.length);
+
+      summary.innerHTML = `Fastest: ${msToStr(min)} | Slowest: ${msToStr(max)} | Avg: ${msToStr(avg)}`;
+    }
+
+    function msToStr(ms) {
+      const totalSec = Math.floor(ms / 1000);
+      const hh = Math.floor(totalSec / 3600);
+      const mm = Math.floor((totalSec % 3600) / 60);
+      const ss = totalSec % 60;
+      const centi = Math.floor((ms % 1000) / 10);
+
+      return `${format(hh)}:${format(mm)}:${format(ss)}.${format(centi)}`;
+    }
+
+    function toggleTheme() {
+      document.body.classList.toggle('dark');
+      const isDark = document.body.classList.contains('dark');
+      localStorage.setItem('theme', isDark ? 'dark' : 'light');
+      document.getElementById('themeSwitch').checked = isDark;
+    }
+
+    // Initialize state on page load
+    window.onload = () => {
+      const saved = localStorage.getItem('theme');
+      if (saved === 'dark') {
+        document.body.classList.add('dark');
+        document.getElementById('themeSwitch').checked = true;
+      }
+      updateDisplay();
+    };
+  </script>
+</body>
+</html>
